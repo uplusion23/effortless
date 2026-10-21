@@ -8,6 +8,7 @@ import dev.huskuraft.universal.api.core.InteractionHand;
 import dev.huskuraft.universal.api.core.ItemStack;
 import dev.huskuraft.universal.api.core.StatTypes;
 import dev.huskuraft.universal.api.tag.RecordTag;
+import dev.huskuraft.effortless.building.BuildState;
 import dev.huskuraft.effortless.building.Context;
 import dev.huskuraft.effortless.building.Storage;
 import dev.huskuraft.effortless.building.operation.Operation;
@@ -69,13 +70,17 @@ public class BlockStateUpdateOperation extends BlockOperation {
         if (getBlockStateInWorld().isAir() && getBlockState().isAir()) {
             return BlockOperationResultType.FAIL_BLOCK_STATE_AIR;
         }
-        if (!allowInteraction()) {
-            if (!getBlockStateInWorld().isAir()) {
-                return BlockOperationResultType.FAIL_BREAK_NO_PERMISSION;
-            }
-            if (!getBlockState().isAir()) {
-                return BlockOperationResultType.FAIL_PLACE_NO_PERMISSION;
-            }
+        // Find these values before the world changes, because the item count uses them.
+        var isUsingItem = isUsingItemInHand();
+        var isMerging = !isUsingItem && isMerging(getBlockStateInWorld(), getBlockState());
+        var keepsBlockInWorld = isUsingItem || isMerging;
+        var placedItem = isUsingItem ? getPlayer().getItemStack(getHand()).getItem() : getBlockState().getItem();
+        var itemCount = isUsingItem ? 1 : isMerging ? getBlockState().getRequiredItemCount() - getBlockStateInWorld().getRequiredItemCount() : getItemCountEstimation();
+        if (!getBlockStateInWorld().isAir() && !keepsBlockInWorld && !allowBreakBlock()) {
+            return BlockOperationResultType.FAIL_BREAK_NO_PERMISSION;
+        }
+        if (!getBlockState().isAir() && !allowPlaceBlock()) {
+            return BlockOperationResultType.FAIL_PLACE_NO_PERMISSION;
         }
         if (!isInBorderBound()) {
             return BlockOperationResultType.FAIL_WORLD_BORDER;
@@ -84,7 +89,7 @@ public class BlockStateUpdateOperation extends BlockOperation {
             return BlockOperationResultType.FAIL_WORLD_HEIGHT;
         }
 
-        if (!getBlockStateInWorld().isAir()) {
+        if (!getBlockStateInWorld().isAir() && !keepsBlockInWorld) {
             if (!context.configs().constraintConfig().allowBreakBlocks()) {
                 return BlockOperationResultType.FAIL_BREAK_NO_PERMISSION;
             }
@@ -100,16 +105,16 @@ public class BlockStateUpdateOperation extends BlockOperation {
             if (!context.configs().constraintConfig().allowPlaceBlocks()) {
                 return BlockOperationResultType.FAIL_PLACE_NO_PERMISSION;
             }
-            if (!context.configs().constraintConfig().whitelistedItems().isEmpty() && !context.configs().constraintConfig().whitelistedItems().contains(getBlockState().getItem().getId())) {
+            if (!context.configs().constraintConfig().whitelistedItems().isEmpty() && !context.configs().constraintConfig().whitelistedItems().contains(placedItem.getId())) {
                 return BlockOperationResultType.FAIL_PLACE_BLACKLISTED;
             }
-            if (!context.configs().constraintConfig().blacklistedItems().isEmpty() && context.configs().constraintConfig().blacklistedItems().contains(getBlockState().getItem().getId())) {
+            if (!context.configs().constraintConfig().blacklistedItems().isEmpty() && context.configs().constraintConfig().blacklistedItems().contains(placedItem.getId())) {
                 return BlockOperationResultType.FAIL_PLACE_BLACKLISTED;
             }
         }
 
 
-        if (!getBlockState().isAir()) { // check replace for place
+        if (!getBlockState().isAir() && !keepsBlockInWorld) { // check replace for place
 
             switch (context.replaceStrategy()) {
                 case DISABLED -> {
@@ -138,7 +143,21 @@ public class BlockStateUpdateOperation extends BlockOperation {
             }
         }
 
-        if (!getBlockStateInWorld().isAir()) {
+        // Find the item before the break. Do not break a block if there is no item to replace it.
+        var itemStack = getBlockState().isAir() ? null : storage.search(placedItem).orElse(null);
+        if (!getBlockState().isAir()) {
+            if (itemStack == null || itemStack.isEmpty()) {
+                return BlockOperationResultType.FAIL_PLACE_ITEM_INSUFFICIENT;
+            }
+            if (!(itemStack.getItem() instanceof BlockItem)) {
+                return BlockOperationResultType.FAIL_PLACE_ITEM_NOT_BLOCK;
+            }
+            if (!getPlayer().getGameMode().isCreative() && storage.getCount(itemStack.getItem()) < itemCount) {
+                return BlockOperationResultType.FAIL_PLACE_ITEM_INSUFFICIENT;
+            }
+        }
+
+        if (!getBlockStateInWorld().isAir() && !keepsBlockInWorld) {
             if (!getPlayer().getGameMode().isCreative() && getWorld().getBlockState(getBlockPosition()).hasTagFeatureCannotReplace()) {
                 return BlockOperationResultType.FAIL_BREAK_REPLACE_FLAGS;
             }
@@ -178,25 +197,10 @@ public class BlockStateUpdateOperation extends BlockOperation {
         }
 
         if (!getBlockState().isAir()) {
-            var itemStack = storage.search(getBlockState().getItem()).orElse(null);
-
-            if (itemStack == null || itemStack.isEmpty()) {
-                return BlockOperationResultType.FAIL_PLACE_ITEM_INSUFFICIENT;
-            }
-
-            if (!(itemStack.getItem() instanceof BlockItem blockItem)) {
-                return BlockOperationResultType.FAIL_PLACE_ITEM_NOT_BLOCK;
-            }
-
-            var estimation = getItemCountEstimation();
-            if (!getPlayer().getGameMode().isCreative()) {
-                if (storage.getCount(itemStack.getItem()) < estimation) {
-                    return BlockOperationResultType.FAIL_PLACE_ITEM_INSUFFICIENT;
-                }
-            }
+            var blockItem = (BlockItem) itemStack.getItem();
 
             if (context.isPreviewType() || context.isBuildClientType()) {
-                storage.consume(itemStack.getItem(), estimation);
+                storage.consume(itemStack.getItem(), itemCount);
                 return BlockOperationResultType.CONSUME;
             }
 
@@ -204,7 +208,8 @@ public class BlockStateUpdateOperation extends BlockOperation {
                 var originalItemStack = getPlayer().getItemStack(getHand());
                 getPlayer().setItemStack(getHand(), itemStack);
                 var placed = false;
-                if (context.useLegacyBlockPlace()) {
+                if (context.useLegacyBlockPlace() || isUsingItem) {
+                    // placeOnBlock removes the item from the stack.
                     placed = blockItem.placeOnBlock(getPlayer(), getInteraction()).consumesAction();
                 } else {
                     placed = blockItem.setBlockOnly(getWorld(), getPlayer(), getInteraction(), getBlockState());
@@ -215,7 +220,7 @@ public class BlockStateUpdateOperation extends BlockOperation {
                         blockItem.getBlock().place(getWorld(), getPlayer(), getBlockPosition(), getBlockState(), itemStack);
                     }
                     if (placed && !getPlayer().getGameMode().isCreative()) {
-                        storage.consume(blockItem, getItemCountEstimation());
+                        storage.consume(blockItem, itemCount);
                     }
                 }
                 getPlayer().setItemStack(getHand(), originalItemStack);
@@ -292,6 +297,36 @@ public class BlockStateUpdateOperation extends BlockOperation {
     @Override
     public Type getType() {
         return Type.UPDATE;
+    }
+
+    // If the item in the hand can go into the block, for example a slab on a slab, use the item the same as the player does.
+    // Thus mods can change the result, for example the mixed slabs of Full Slabs.
+    private boolean isUsingItemInHand() {
+        if (context.buildState() != BuildState.PLACE_BLOCK && context.buildState() != BuildState.MIRROR_BLOCK) {
+            return false;
+        }
+        var itemInHand = getPlayer().getItemStack(getHand()).getItem();
+        if (getBlockState().isAir() || !(itemInHand instanceof BlockItem)) {
+            return false;
+        }
+        // The randomizer can give a state from a different item.
+        if (getBlockState().getItem() instanceof BlockItem && !getBlockState().getItem().equals(itemInHand)) {
+            return false;
+        }
+        var blockStateInWorld = getBlockStateInWorld();
+        if (blockStateInWorld.isAir() || blockStateInWorld.isReplaceable()) {
+            // Set the mirrored state directly to keep its orientation. Use the item only if no item can place the state.
+            return !(getBlockState().getItem() instanceof BlockItem);
+        }
+        return blockStateInWorld.canBeReplaced(getPlayer(), getInteraction());
+    }
+
+    // True if the new state adds to a block of the same type, for example a slab on a slab.
+    public static boolean isMerging(BlockState blockStateInWorld, BlockState blockState) {
+        if (blockStateInWorld == null || blockState == null || blockStateInWorld.isAir() || blockState.isAir()) {
+            return false;
+        }
+        return blockStateInWorld.getBlock().equals(blockState.getBlock()) && blockState.getRequiredItemCount() > blockStateInWorld.getRequiredItemCount();
     }
 
     public int getItemCountEstimation() {

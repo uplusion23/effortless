@@ -4,7 +4,9 @@ import java.awt.*;
 import java.util.List;
 
 import dev.huskuraft.universal.api.renderer.Renderer;
+import dev.huskuraft.effortless.building.BuildState;
 import dev.huskuraft.effortless.building.operation.block.BlockOperationResult;
+import dev.huskuraft.effortless.building.operation.block.BlockOperationResultType;
 import dev.huskuraft.effortless.renderer.opertaion.BlockRenderLayers;
 import dev.huskuraft.effortless.renderer.opertaion.OperationsRenderer;
 
@@ -44,6 +46,10 @@ public class BlockOperationRenderer implements OperationRenderer {
                         case FAIL_WORLD_HEIGHT, FAIL_WORLD_BORDER, FAIL_WORLD_INCORRECT_DIM -> BLOCK_HIDEEN_COLOR;
                         default -> BLOCK_PLACE_FAIL_COLOR;
                     };
+                }
+                // With paste air, most air positions are already air. Do not show them.
+                if (blockOperationResult.result() == BlockOperationResultType.FAIL_BLOCK_STATE_AIR && blockOperationResult.getOperation().getContext().buildState() == BuildState.PASTE_STRUCTURE) {
+                    return BLOCK_HIDEEN_COLOR;
                 }
                 return switch (blockOperationResult.result()) {
                     case SUCCESS, SUCCESS_PARTIAL, CONSUME -> BLOCK_BREAK_SUCCESS_COLOR;
@@ -96,7 +102,7 @@ public class BlockOperationRenderer implements OperationRenderer {
 
         var operation = getResult().getOperation();
 
-        if (renderContext.maxRenderVolume() < operation.getContext().getVolume()) {
+        if (renderContext.maxRenderVolume() < operation.getContext().getPreviewVolume()) {
             return;
         }
 

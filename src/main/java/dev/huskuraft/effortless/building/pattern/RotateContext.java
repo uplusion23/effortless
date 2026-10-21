@@ -125,7 +125,21 @@ public record RotateContext(
         if (blockState == null) {
             return null;
         }
-        return rotateBlockState(blockState, angle, false);
+        return switch (axis) {
+            case X, Z -> blockState.reorient(this::rotateQuarterTurns);
+            case Y -> rotateBlockState(blockState, angle, false);
+        };
+    }
+
+    // Block states turn only in steps of 90 degrees.
+    private Direction rotateQuarterTurns(Direction direction) {
+        var quarterTurns = Math.round(angle / (MathUtils.PI / 2));
+        var snappedAngle = quarterTurns * (MathUtils.PI / 2);
+        return Direction.getNearest(switch (axis) {
+            case X -> direction.step().rotX(snappedAngle);
+            case Y -> direction.step().rotY(snappedAngle);
+            case Z -> direction.step().rotZ(snappedAngle);
+        });
     }
 
     public Extras rotate(Extras extras) {

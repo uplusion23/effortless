@@ -7,22 +7,26 @@ import dev.huskuraft.universal.api.networking.NetworkChannel;
 import dev.huskuraft.universal.api.networking.Packet;
 import dev.huskuraft.universal.api.networking.Side;
 import dev.huskuraft.universal.api.text.Text;
+import dev.huskuraft.effortless.networking.PacketSplitter;
 import dev.huskuraft.effortless.networking.packets.AllPacketListener;
 import dev.huskuraft.effortless.networking.packets.player.PlayerBuildPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerBuildTooltipPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerCommandPacket;
+import dev.huskuraft.effortless.networking.packets.player.PlayerFlightPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerPermissionCheckPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerSettingsPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerSnapshotCapturePacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerSnapshotSharePacket;
 import dev.huskuraft.effortless.networking.packets.session.SessionConfigPacket;
 import dev.huskuraft.effortless.networking.packets.session.SessionPacket;
+import io.netty.buffer.ByteBuf;
 
 public final class EffortlessNetworkChannel extends NetworkChannel<AllPacketListener> {
 
     private static final int COMPATIBILITY_VERSION = Effortless.PROTOCOL_VERSION;
     private final Effortless entrance;
     private final AllPacketListener listener;
+    private final PacketSplitter packetSplitter = new PacketSplitter();
 
     public EffortlessNetworkChannel(Effortless entrance) {
         this(entrance, Effortless.DEFAULT_CHANNEL);
@@ -43,12 +47,28 @@ public final class EffortlessNetworkChannel extends NetworkChannel<AllPacketList
         registerPacket(PlayerBuildTooltipPacket.class, new PlayerBuildTooltipPacket.Serializer());
         registerPacket(PlayerSnapshotCapturePacket.class, new PlayerSnapshotCapturePacket.Serializer());
         registerPacket(PlayerSnapshotSharePacket.class, new PlayerSnapshotSharePacket.Serializer());
+        registerPacket(PlayerFlightPacket.class, new PlayerFlightPacket.Serializer());
 
         getEntrance().getEventRegistry().getRegisterNetworkEvent().register(this::onRegisterNetwork);
     }
 
     public Effortless getEntrance() {
         return entrance;
+    }
+
+    @Override
+    public void sendBuffer(ByteBuf byteBuf, Player player) {
+        for (var part : packetSplitter.split(byteBuf)) {
+            super.sendBuffer(part, player);
+        }
+    }
+
+    @Override
+    public void receiveBuffer(ByteBuf byteBuf, Player player) {
+        var buffer = packetSplitter.receive(byteBuf, player == null ? null : player.getId());
+        if (buffer != null) {
+            super.receiveBuffer(buffer, player);
+        }
     }
 
     @Override
@@ -144,6 +164,13 @@ public final class EffortlessNetworkChannel extends NetworkChannel<AllPacketList
             });
 
 
+        }
+
+        @Override
+        public void handle(PlayerFlightPacket packet, Player player) {
+            getEntrance().getServer().execute(() -> {
+                getEntrance().getFlightManager().onFlightPacket(player, packet);
+            });
         }
     }
 

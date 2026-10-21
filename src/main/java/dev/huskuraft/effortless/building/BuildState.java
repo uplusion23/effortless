@@ -10,7 +10,9 @@ public enum BuildState {
     PLACE_BLOCK,
     INTERACT_BLOCK,
     COPY_STRUCTURE,
-    PASTE_STRUCTURE;
+    PASTE_STRUCTURE,
+    // The mirrored copies of a block that Minecraft placed without a build mode.
+    MIRROR_BLOCK;
 
     public boolean isIdle() {
         return this == IDLE;
@@ -25,6 +27,7 @@ public enum BuildState {
                     case INTERACT_BLOCK -> "interacting_block";
                     case COPY_STRUCTURE -> "copying_structure";
                     case PASTE_STRUCTURE -> "pasting_structure";
+                    case MIRROR_BLOCK -> "placing_block";
                 }
         ));
     }
@@ -38,6 +41,7 @@ public enum BuildState {
                     case INTERACT_BLOCK -> "interacting_block";
                     case COPY_STRUCTURE -> "copying_structure";
                     case PASTE_STRUCTURE -> "pasting_structure";
+                    case MIRROR_BLOCK -> "placing_block";
                 }
         ), buildMode.getDisplayName().withStyle(ChatFormatting.GOLD));
     }

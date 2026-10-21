@@ -41,7 +41,7 @@ public class BlockInteractOperation extends BlockOperation {
         if (getBlockState() == null) {
             return BlockOperationResultType.FAIL_BLOCK_STATE_NULL;
         }
-        if (!allowInteraction()) {
+        if (!allowInteractBlock()) {
             return BlockOperationResultType.FAIL_INTERACT_NO_PERMISSION;
         }
 

@@ -9,6 +9,8 @@ import dev.huskuraft.effortless.building.Context;
 import dev.huskuraft.effortless.building.InventorySnapshot;
 import dev.huskuraft.effortless.building.clipboard.Clipboard;
 import dev.huskuraft.effortless.building.config.BuilderConfig;
+import dev.huskuraft.effortless.building.mirror.Mirror;
+import dev.huskuraft.effortless.building.mirror.MirrorBreakMode;
 import dev.huskuraft.effortless.building.operation.block.Extras;
 import dev.huskuraft.effortless.building.pattern.Pattern;
 import dev.huskuraft.effortless.building.replace.Replace;
@@ -28,6 +30,7 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
                 byteBuf.read(new StructureSerializer()),
                 byteBuf.read(new ClipboardSerializer()),
                 byteBuf.read(new PatternSerializer()),
+                byteBuf.read(new MirrorSerializer()),
                 byteBuf.read(new ReplaceSerializer()),
                 new Context.Configs(
                         byteBuf.read(new ConstraintConfigSerializer()),
@@ -47,6 +50,7 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
         byteBuf.write(context.structure(), new StructureSerializer());
         byteBuf.write(context.clipboard(), new ClipboardSerializer());
         byteBuf.write(context.pattern(), new PatternSerializer());
+        byteBuf.write(context.mirror(), new MirrorSerializer());
         byteBuf.write(context.replace(), new ReplaceSerializer());
 
         byteBuf.write(context.configs().constraintConfig(), new ConstraintConfigSerializer());
@@ -61,7 +65,8 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
         public Clipboard read(NetByteBuf byteBuf) {
             return new Clipboard(
                     byteBuf.readBoolean(),
-                    byteBuf.read(new SnapshotSerializer())
+                    byteBuf.read(new SnapshotSerializer()),
+                    byteBuf.readBoolean()
             );
         }
 
@@ -69,6 +74,7 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
         public void write(NetByteBuf byteBuf, Clipboard clipboard) {
             byteBuf.writeBoolean(clipboard.enabled());
             byteBuf.write(clipboard.snapshot(), new SnapshotSerializer());
+            byteBuf.writeBoolean(clipboard.pasteAir());
         }
     }
 
@@ -85,6 +91,20 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
         public void write(NetByteBuf byteBuf, Pattern pattern) {
             byteBuf.writeBoolean(pattern.enabled());
             byteBuf.writeList(pattern.transformers(), new TransformerSerializer());
+        }
+    }
+
+    public static class MirrorSerializer implements NetByteBufSerializer<Mirror> {
+        @Override
+        public Mirror read(NetByteBuf byteBuf) {
+            return new Mirror(
+                    byteBuf.readList(new TransformerSerializer.MirrorTransformerSerializer())
+            );
+        }
+
+        @Override
+        public void write(NetByteBuf byteBuf, Mirror mirror) {
+            byteBuf.writeList(mirror.transformers(), new TransformerSerializer.MirrorTransformerSerializer());
         }
     }
 
@@ -177,7 +197,9 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
         public BuilderConfig read(NetByteBuf byteBuf) {
             return new BuilderConfig(
                     byteBuf.readVarInt(),
-                    byteBuf.readBoolean()
+                    byteBuf.readBoolean(),
+                    byteBuf.readEnum(MirrorBreakMode.class),
+                    byteBuf.readVarInt()
             );
         }
 
@@ -185,6 +207,8 @@ public class ContextSerializer implements NetByteBufSerializer<Context> {
         public void write(NetByteBuf byteBuf, BuilderConfig builderConfig) {
             byteBuf.writeVarInt(builderConfig.reservedToolDurability());
             byteBuf.writeBoolean(builderConfig.passiveMode());
+            byteBuf.writeEnum(builderConfig.mirrorBreakMode());
+            byteBuf.writeVarInt(builderConfig.flightRange());
         }
 
     }

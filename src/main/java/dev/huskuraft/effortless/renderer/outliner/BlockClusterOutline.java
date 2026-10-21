@@ -27,19 +27,30 @@ public class BlockClusterOutline extends Outline {
     private static Vector3d xYZ = new Vector3d(-.5, .5, .5);
     private static Vector3d XYZ = new Vector3d(.5, .5, .5);
 
+    private final Iterable<BlockPosition> selection;
     private final Cluster cluster;
+    private Vector3d offset = Vector3d.ZERO;
 
     public BlockClusterOutline(Iterable<BlockPosition> selection) {
+        this.selection = selection;
         cluster = new Cluster();
         selection.forEach(cluster::include);
+    }
+
+    public Iterable<BlockPosition> getSelection() {
+        return selection;
+    }
+
+    public void setOffset(Vector3d offset) {
+        this.offset = offset;
     }
 
     @Override
     public void render(Renderer renderer, float deltaTick) {
         cluster.visibleEdges.forEach(edge -> {
-            var start = edge.blockPosition.toVector3d();
+            var start = edge.blockPosition.toVector3d().add(offset);
             var direction = Direction.get(AxisDirection.POSITIVE, edge.axis);
-            renderAACuboidLine(renderer, start, edge.blockPosition.relative(direction).toVector3d());
+            renderAACuboidLine(renderer, start, edge.blockPosition.relative(direction).toVector3d().add(offset));
         });
 
         var faceTexture = params.faceTexture;
@@ -62,7 +73,7 @@ public class BlockClusterOutline extends Outline {
         var center = blockPosition.getCenter();
         var offset = face.getNormal().toVector3d();
         offset = offset.mul(1 / 128d);
-        center = center.sub(camera).add(offset);
+        center = center.sub(camera).add(offset).add(this.offset);
 
         renderer.pushPose();
         renderer.translate(center);

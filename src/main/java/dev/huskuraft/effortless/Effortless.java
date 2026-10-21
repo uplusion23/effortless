@@ -17,7 +17,7 @@ public class Effortless implements Entrance {
 
     public static final String MOD_ID = "effortless";
     public static final String DEFAULT_CHANNEL = "default";
-    public static final int PROTOCOL_VERSION = 13;
+    public static final int PROTOCOL_VERSION = 17;
     public static final Logger LOGGER = LoggerFactory.getLogger(Effortless.class.getName());
 
     private final EventRegistry eventRegistry = PlatformLoader.getSingleton(EventRegistry.class);
@@ -26,6 +26,7 @@ public class Effortless implements Entrance {
     private final EffortlessConfigStorage sessionConfigStorage = new EffortlessConfigStorage(this);
     private final EffortlessSessionManager sessionManager = new EffortlessSessionManager(this);
     private final EffortlessServerManager serverManager = new EffortlessServerManager(this);
+    private final EffortlessFlightManager flightManager = new EffortlessFlightManager(this);
 
     public static Effortless getInstance() {
         return (Effortless) Entrance.getInstance();
@@ -61,6 +62,10 @@ public class Effortless implements Entrance {
 
     public EffortlessServerManager getServerManager() {
         return serverManager;
+    }
+
+    public EffortlessFlightManager getFlightManager() {
+        return flightManager;
     }
 
     @Override

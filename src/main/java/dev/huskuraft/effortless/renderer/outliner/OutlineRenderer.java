@@ -70,6 +70,18 @@ public class OutlineRenderer {
         return entry.getOutline().getParams();
     }
 
+    // Reuse the cluster while the selection is the same instance. Thus a large selection is built only once.
+    public Outline.OutlineParams showCluster(Object id, Iterable<BlockPosition> selection, Vector3d offset) {
+        var entry = outlines.get(id);
+        if (entry == null || !(entry.getOutline() instanceof BlockClusterOutline outline) || outline.getSelection() != selection) {
+            entry = new OutlineEntry(new BlockClusterOutline(selection));
+            outlines.put(id, entry);
+        }
+        entry.ticksTillRemoval = 1;
+        ((BlockClusterOutline) entry.getOutline()).setOffset(offset);
+        return entry.getOutline().getParams();
+    }
+
     public void keep(Object id) {
         if (outlines.containsKey(id))
             outlines.get(id).ticksTillRemoval = 1;

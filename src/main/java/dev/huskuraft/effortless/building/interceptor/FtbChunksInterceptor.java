@@ -1,5 +1,6 @@
 package dev.huskuraft.effortless.building.interceptor;
 
+import dev.huskuraft.universal.api.core.BlockInteraction;
 import dev.huskuraft.universal.api.core.BlockPosition;
 import dev.huskuraft.universal.api.core.Player;
 import dev.huskuraft.universal.api.core.World;
@@ -33,7 +34,21 @@ public final class FtbChunksInterceptor implements BuildInterceptor {
     }
 
     @Override
-    public boolean allowInteraction(Player player, World world, BlockPosition blockPosition) {
+    public boolean allowBreakBlock(Player player, World world, BlockPosition blockPosition) {
+        return allowInteraction(player, world, blockPosition);
+    }
+
+    @Override
+    public boolean allowPlaceBlock(Player player, World world, BlockPosition blockPosition) {
+        return allowInteraction(player, world, blockPosition);
+    }
+
+    @Override
+    public boolean allowInteractBlock(Player player, World world, BlockInteraction blockInteraction) {
+        return allowInteraction(player, world, blockInteraction.getBlockPosition());
+    }
+
+    private boolean allowInteraction(Player player, World world, BlockPosition blockPosition) {
         if (!isEnabled()) {
             return true;
         }

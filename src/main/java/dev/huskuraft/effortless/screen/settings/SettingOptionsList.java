@@ -3,6 +3,7 @@ package dev.huskuraft.effortless.screen.settings;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 
 import dev.huskuraft.universal.api.gui.AbstractWidget;
 import dev.huskuraft.universal.api.gui.Dimens;
@@ -81,6 +82,51 @@ public class SettingOptionsList extends AbstractEntryList<SettingOptionsList.Ent
 
     public <T> ButtonEntry<T> addTab(Text title, Text symbol, T value, Consumer<T> consumer, BiConsumer<ButtonEntry<T>, T> buttonConsumer) {
         return addEntry(new ButtonEntry<>(getEntrance(), this, title, symbol, value, consumer, buttonConsumer));
+    }
+
+    public SliderEntry addSliderEntry(Text title, Text symbol, int value, int min, int max, IntFunction<Text> formatter, Consumer<Integer> consumer) {
+        return addEntry(new SliderEntry(getEntrance(), this, title, symbol, value, min, max, formatter, consumer));
+    }
+
+    public static final class SliderEntry extends SettingsEntry<Integer> {
+
+        private final IntFunction<Text> formatter;
+        private int min;
+        private int max;
+        private SliderButton slider;
+
+        public SliderEntry(Entrance entrance, SettingOptionsList entryList, Text title, Text symbol, Integer value, int min, int max, IntFunction<Text> formatter, Consumer<Integer> consumer) {
+            super(entrance, entryList, title, symbol, value, consumer);
+            this.formatter = formatter;
+            this.min = min;
+            this.max = max;
+        }
+
+        @Override
+        public void onCreate() {
+            super.onCreate();
+
+            this.slider = addWidget(new SliderButton(getEntrance(), getInnerRight() - Button.BUTTON_WIDTH_1 - 28, getTop(), Button.BUTTON_WIDTH_1 + 28, Button.DEFAULT_HEIGHT, min, max, getItem(), formatter));
+            this.slider.setValueChangeListener(value -> super.setItem(value));
+            this.titleTextWidget.setWidth(getInnerRight() - getInnerLeft() - 8 - slider.getWidth());
+        }
+
+        // The server can change the range after the entry shows.
+        public void setRange(int min, int max) {
+            this.min = min;
+            this.max = max;
+            if (slider != null) {
+                this.slider.setRange(min, max);
+            }
+        }
+
+        @Override
+        public void setItem(Integer item) {
+            super.setItem(item);
+            if (slider != null) {
+                this.slider.setValue(item);
+            }
+        }
     }
 
 

@@ -1,16 +1,22 @@
 package dev.huskuraft.effortless.building.config.universal;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
+import dev.huskuraft.effortless.building.config.BuilderConfig;
 import dev.huskuraft.effortless.building.config.ClientConfig;
 import dev.huskuraft.effortless.building.config.ClipboardConfig;
 import dev.huskuraft.effortless.building.config.PatternConfig;
 import dev.huskuraft.effortless.building.config.RenderConfig;
+import dev.huskuraft.effortless.building.flight.FlightRange;
+import dev.huskuraft.effortless.building.mirror.MirrorBreakMode;
 import dev.huskuraft.universal.api.config.ConfigSerializer;
 import dev.huskuraft.universal.api.nightconfig.core.CommentedConfig;
 import dev.huskuraft.universal.api.nightconfig.core.Config;
 import dev.huskuraft.universal.api.nightconfig.core.ConfigSpec;
+import dev.huskuraft.universal.api.nightconfig.core.EnumGetMethod;
 
 public class ClientConfigConfigSerializer implements ConfigSerializer<ClientConfig> {
 
@@ -27,6 +33,9 @@ public class ClientConfigConfigSerializer implements ConfigSerializer<ClientConf
     private static final String KEY_COLLECTIONS = "collections";
 
     private static final String KEY_RESERVED_TOOL_DURABILITY = "reservedToolDurability";
+    private static final String KEY_PASSIVE_MODE = "passiveMode";
+    private static final String KEY_MIRROR_BREAK_MODE = "mirrorBreakMode";
+    private static final String KEY_FLIGHT_RANGE = "flightRange";
 
 
     @Override
@@ -41,7 +50,10 @@ public class ClientConfigConfigSerializer implements ConfigSerializer<ClientConf
         spec.defineList(List.of(KEY_PATTERN, KEY_TRANSFORMER_PRESETS), () -> getDefault().patternConfig().itemRandomizers().stream().map(TransformerConfigSerializer.INSTANCE::serialize).toList(), Config.class::isInstance);
         spec.defineList(List.of(KEY_CLIPBOARD, KEY_COLLECTIONS), () -> getDefault().clipboardConfig().collections().stream().map(SnapshotConfigSerializer.INSTANCE::serialize).toList(), Config.class::isInstance);
 //        spec.define(KEY_PASSIVE_MODE, () -> getDefault().passiveMode(), Boolean.class::isInstance);
-        spec.defineInRange(List.of(KEY_BUILDER, KEY_RESERVED_TOOL_DURABILITY), getDefault().builderConfig().reservedToolDurability(), 0, 32);
+        spec.defineInRange(List.of(KEY_BUILDER, KEY_RESERVED_TOOL_DURABILITY), getDefault().builderConfig().reservedToolDurability(), BuilderConfig.RESERVED_TOOL_DURABILITY_RANGE.min(), BuilderConfig.RESERVED_TOOL_DURABILITY_RANGE.max());
+        spec.define(List.of(KEY_BUILDER, KEY_PASSIVE_MODE), () -> getDefault().builderConfig().passiveMode(), Boolean.class::isInstance);
+        spec.define(List.of(KEY_BUILDER, KEY_MIRROR_BREAK_MODE), () -> getDefault().builderConfig().mirrorBreakMode().name().toLowerCase(Locale.ROOT), value -> value instanceof String name && Arrays.stream(MirrorBreakMode.values()).anyMatch(mode -> mode.name().equalsIgnoreCase(name)));
+        spec.defineInRange(List.of(KEY_BUILDER, KEY_FLIGHT_RANGE), getDefault().builderConfig().flightRange(), FlightRange.MIN, FlightRange.INFINITE);
 
         return spec;
     }
@@ -50,6 +62,12 @@ public class ClientConfigConfigSerializer implements ConfigSerializer<ClientConf
     public ClientConfig deserialize(Config config) {
         validate(config);
         return new ClientConfig(
+                new BuilderConfig(
+                        config.<Number>get(List.of(KEY_BUILDER, KEY_RESERVED_TOOL_DURABILITY)).intValue(),
+                        config.get(List.of(KEY_BUILDER, KEY_PASSIVE_MODE)),
+                        config.getEnum(List.of(KEY_BUILDER, KEY_MIRROR_BREAK_MODE), MirrorBreakMode.class, EnumGetMethod.NAME_IGNORECASE),
+                        config.<Number>get(List.of(KEY_BUILDER, KEY_FLIGHT_RANGE)).intValue()
+                ),
                 new RenderConfig(
                         config.get(List.of(KEY_RENDER, KEY_SHOW_BLOCK_PREVIEW)),
                         config.get(List.of(KEY_RENDER, KEY_SHOW_OTHER_PLAYERS_BUILD)),
@@ -64,7 +82,8 @@ public class ClientConfigConfigSerializer implements ConfigSerializer<ClientConf
                 new ClipboardConfig(
                         config.<List<Config>>get(List.of(KEY_CLIPBOARD, KEY_COLLECTIONS)).stream().map(SnapshotConfigSerializer.INSTANCE::deserialize).toList(),
                         List.of()
-                )
+                ),
+                ClientConfig.DEFAULT.structureMap()
         );
     }
 
@@ -77,6 +96,10 @@ public class ClientConfigConfigSerializer implements ConfigSerializer<ClientConf
         config.set(List.of(KEY_RENDER, KEY_MAX_RENDER_VOLUME), settings.renderConfig().maxRenderVolume());
         config.set(List.of(KEY_PATTERN, KEY_TRANSFORMER_PRESETS), settings.patternConfig().itemRandomizers().stream().map(TransformerConfigSerializer.INSTANCE::serialize).filter(Objects::nonNull).toList());
         config.set(List.of(KEY_CLIPBOARD, KEY_COLLECTIONS), settings.clipboardConfig().collections().stream().map(SnapshotConfigSerializer.INSTANCE::serialize).filter(Objects::nonNull).toList());
+        config.set(List.of(KEY_BUILDER, KEY_RESERVED_TOOL_DURABILITY), settings.builderConfig().reservedToolDurability());
+        config.set(List.of(KEY_BUILDER, KEY_PASSIVE_MODE), settings.builderConfig().passiveMode());
+        config.set(List.of(KEY_BUILDER, KEY_MIRROR_BREAK_MODE), settings.builderConfig().mirrorBreakMode().name().toLowerCase(Locale.ROOT));
+        config.set(List.of(KEY_BUILDER, KEY_FLIGHT_RANGE), settings.builderConfig().flightRange());
         validate(config);
         return config;
     }

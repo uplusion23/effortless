@@ -16,7 +16,10 @@ import dev.huskuraft.effortless.building.Feature;
 import dev.huskuraft.effortless.building.Option;
 import dev.huskuraft.effortless.building.clipboard.Clipboard;
 import dev.huskuraft.effortless.building.config.PassiveMode;
+import dev.huskuraft.effortless.building.flight.Flight;
+import dev.huskuraft.effortless.building.flight.FlightRange;
 import dev.huskuraft.effortless.building.history.UndoRedo;
+import dev.huskuraft.effortless.building.mirror.MirrorAxis;
 import dev.huskuraft.effortless.building.pattern.Pattern;
 import dev.huskuraft.effortless.building.replace.Replace;
 import dev.huskuraft.effortless.building.replace.ReplaceStrategy;
@@ -119,7 +122,45 @@ public class EffortlessStructureScreen extends AbstractWheelScreen<Structure, Op
         return button(context.clipboard(), context.clipboard().enabled(), context.clipboard().getNameText(), descriptions);
     });
 
+    private static final Button<Option> MIRROR_X_OPTION = mirrorButton(MirrorAxis.MIRROR_X);
+    private static final Button<Option> MIRROR_Y_OPTION = mirrorButton(MirrorAxis.MIRROR_Y);
+    private static final Button<Option> MIRROR_Z_OPTION = mirrorButton(MirrorAxis.MIRROR_Z);
+
+    private static final Button<Option> FLIGHT_OPTION = lazyButton(() -> {
+        var entrance = EffortlessClient.getInstance();
+        var player = entrance.getClient().getPlayer();
+        var gameMode = player.getGameMode();
+        // The server controls the flight ability.
+        var isEnabled = player.mayFly() && gameMode != null && !gameMode.isCreative() && !gameMode.isSpectator();
+        var flight = isEnabled ? Flight.ENABLED : Flight.DISABLED;
+        // The server can decrease this range to the limit of the player.
+        var range = FlightRange.getDisplayName(entrance.getConfigStorage().get().builderConfig().flightRange()).withStyle(ChatFormatting.GOLD);
+        var descriptions = new ArrayList<Text>();
+        descriptions.add(Text.empty());
+        descriptions.add(Text.translate("effortless.tooltip.click_to_toggle_on_off", OptionKeys.KEY_ATTACK.getKeyBinding().getKey().getNameText()).withStyle(ChatFormatting.DARK_GRAY));
+        return button(flight, flight.getNameText(), flight.getCategoryText(), Text.translate(flight.getTooltipKey(), range), descriptions, flight.getIcon(), flight, isEnabled);
+    });
+
     private static final Button<Option> GO_BACK_OPTION = button(Misc.GO_BACK, false);
+
+    private static Button<Option> mirrorButton(MirrorAxis mirrorAxis) {
+        return lazyButton(() -> {
+            var entrance = EffortlessClient.getInstance();
+            var context = entrance.getStructureBuilder().getContext(entrance.getClient().getPlayer());
+            var mirror = context.mirror().get(mirrorAxis.getAxis());
+            var descriptions = new ArrayList<Text>();
+            if (mirror.isPresent()) {
+                var position = mirror.get().position();
+                descriptions.add(Text.translate("effortless.tooltip.mirror_position", position.x() + " " + position.y() + " " + position.z()).withStyle(ChatFormatting.GRAY));
+            }
+            descriptions.add(Text.empty());
+            descriptions.add(Text.translate("effortless.tooltip.click_to_place_mirror", OptionKeys.KEY_ATTACK.getKeyBinding().getKey().getNameText()).withStyle(ChatFormatting.DARK_GRAY));
+            if (mirror.isPresent()) {
+                descriptions.add(Text.translate("effortless.tooltip.click_to_remove_mirror", OptionKeys.KEY_USE.getKeyBinding().getKey().getNameText()).withStyle(ChatFormatting.DARK_GRAY));
+            }
+            return button(mirrorAxis, mirror.isPresent(), mirrorAxis.getNameText(), descriptions);
+        });
+    }
 
 
     private final KeyBinding assignedKey;
@@ -203,6 +244,20 @@ public class EffortlessStructureScreen extends AbstractWheelScreen<Structure, Op
                 return;
 
             }
+            if (entry.getContent() instanceof Flight) {
+                getEntrance().getStructureBuilder().toggleFlight(getPlayer());
+                return;
+            }
+            if (entry.getContent() instanceof MirrorAxis mirrorAxis) {
+                if (click) {
+                    if (getEntrance().getStructureBuilder().startMirrorPlacement(getPlayer(), mirrorAxis.getAxis())) {
+                        detach();
+                    }
+                    return;
+                }
+                getEntrance().getStructureBuilder().removeMirror(getPlayer(), mirrorAxis.getAxis());
+                return;
+            }
             if (entry.getContent() instanceof UndoRedo undoRedo) {
                 switch (undoRedo) {
                     case UNDO -> {
@@ -245,7 +300,10 @@ public class EffortlessStructureScreen extends AbstractWheelScreen<Structure, Op
     private void setLeftButtons() {
         setLeftButtons(
                 buttonSet(REPLACE_OPTION, REDO_OPTION, UNDO_OPTION),
-                buttonSet(CLIPBOARD_OPTION, PATTERN_OPTION, SETTING_OPTION)
+                buttonSet(CLIPBOARD_OPTION, PATTERN_OPTION, SETTING_OPTION),
+                // The first button is next to the wheel. Thus the buttons show X, Y and Z from left to right.
+                buttonSet(MIRROR_Z_OPTION, MIRROR_Y_OPTION, MIRROR_X_OPTION),
+                buttonSet(FLIGHT_OPTION)
         );
     }
 

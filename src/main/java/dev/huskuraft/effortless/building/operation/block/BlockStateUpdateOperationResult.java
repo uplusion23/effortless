@@ -62,13 +62,14 @@ public class BlockStateUpdateOperationResult extends BlockOperationResult {
                 }
             }
         }
+        var isMerging = BlockStateUpdateOperation.isMerging(getBlockStateToBreak(), getBlockStateToPlace());
         var blockState = switch (itemSummary) {
             case BLOCKS_PLACED -> switch (result) {
                 case SUCCESS, SUCCESS_PARTIAL, CONSUME -> getBlockStateToPlace();
                 default -> null;
             };
             case BLOCKS_DESTROYED -> switch (result) {
-                case SUCCESS, SUCCESS_PARTIAL, CONSUME -> getBlockStateToBreak();
+                case SUCCESS, SUCCESS_PARTIAL, CONSUME -> isMerging ? null : getBlockStateToBreak();
                 default -> null;
             };
             case BLOCKS_INTERACTED -> null;
@@ -104,8 +105,12 @@ public class BlockStateUpdateOperationResult extends BlockOperationResult {
             case CONTAINER_CONSUMED -> null;
             case CONTAINER_DROPPED -> null;
         };
-        if (blockState == null) {
+        // Some blocks have no item, for example the mixed slabs of Full Slabs.
+        if (blockState == null || blockState.getItem().getDefaultStack().isEmpty()) {
             return List.of();
+        }
+        if (isMerging && blockState == getBlockStateToPlace()) {
+            return List.of(blockState.getItem().getDefaultStack().withCount(blockState.getRequiredItemCount() - getBlockStateToBreak().getRequiredItemCount()));
         }
         return List.of(blockState.getItem().getDefaultStack().withCount(blockState.getRequiredItemCount()));
 //        return blockState.getBlock().getDrops(getOperation().getWorld(), getOperation().getPlayer(), getOperation().getBlockPosition(), blockState, null, ItemStack.empty());

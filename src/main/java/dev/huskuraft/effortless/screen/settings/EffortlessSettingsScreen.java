@@ -19,11 +19,12 @@ import dev.huskuraft.effortless.screen.general.EffortlessGlobalGeneralSettingsSc
 public class EffortlessSettingsScreen extends AbstractPanelScreen {
 
     public EffortlessSettingsScreen(Entrance entrance) {
-        super(entrance, Text.translate("effortless.settings.title"), PANEL_WIDTH_42, PANEL_TITLE_HEIGHT_1 + PANEL_BUTTON_ROW_HEIGHT_3);
+        super(entrance, Text.translate("effortless.settings.title"), PANEL_WIDTH_42, PANEL_TITLE_HEIGHT_1 + PANEL_BUTTON_ROW_HEIGHT_4);
     }
 
     private Button constraintButton;
     private Button buildertButton;
+    private Button controlsButton;
 //    private Button patternButton;
 //    private Button clipboardButton;
 //    private Button renderButton;
@@ -57,9 +58,12 @@ public class EffortlessSettingsScreen extends AbstractPanelScreen {
                     }
                 });
             }
-        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 2f   , 0f, 1f).build());
+        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 3f, 0f, 1f).build());
         this.buildertButton = addWidget(Button.builder(getEntrance(), Text.translate("effortless.builder_settings.title"), button -> {
             new EffortlessBuilderSettingsScreen(getEntrance()).attach();
+        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 2f, 0f, 1f).build());
+        this.controlsButton = addWidget(Button.builder(getEntrance(), Text.translate("effortless.controls_settings.title"), button -> {
+            new EffortlessControlsSettingsScreen(getEntrance()).attach();
         }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 1f, 0f, 1f).build());
 //        this.renderButton = addWidget(Button.builder(getEntrance(), Text.translate("effortless.render_settings.title"), button -> {
 //            new EffortlessRenderSettingsScreen(getEntrance()).attach();
@@ -101,6 +105,17 @@ public class EffortlessSettingsScreen extends AbstractPanelScreen {
             );
         }
         this.buildertButton.setTooltip(builderTooltip);
+
+        var controlsTooltip = new ArrayList<Text>();
+        controlsTooltip.add(Text.translate("effortless.controls_settings.title").withStyle(ChatFormatting.WHITE));
+        controlsTooltip.add(TooltipHelper.holdShiftForSummary());
+        if (TooltipHelper.isSummaryButtonDown()) {
+            controlsTooltip.add(Text.empty());
+            controlsTooltip.addAll(
+                    TooltipHelper.wrapLines(getTypeface(), Text.translate("effortless.controls_settings.tooltip", Text.text("[%s]".formatted(EffortlessClientConfigStorage.CONFIG_NAME)).withStyle(ChatFormatting.GOLD)).withStyle(ChatFormatting.GRAY))
+            );
+        }
+        this.controlsButton.setTooltip(controlsTooltip);
 
 //        var patternTooltip = new ArrayList<Text>();
 //        patternTooltip.add(Text.translate("effortless.pattern_settings.title").withStyle(ChatFormatting.WHITE));

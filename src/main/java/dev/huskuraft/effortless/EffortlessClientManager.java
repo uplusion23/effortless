@@ -26,6 +26,7 @@ import dev.huskuraft.effortless.building.clipboard.SnapshotTransform;
 import dev.huskuraft.effortless.renderer.BlockShaders;
 import dev.huskuraft.effortless.renderer.opertaion.OperationsRenderer;
 import dev.huskuraft.effortless.renderer.outliner.OutlineRenderer;
+import dev.huskuraft.effortless.renderer.pattern.MirrorPlaneRenderer;
 import dev.huskuraft.effortless.renderer.pattern.PatternRenderer;
 import dev.huskuraft.effortless.renderer.tooltip.TooltipRenderer;
 import dev.huskuraft.effortless.screen.clipboard.EffortlessClipboardScreen;
@@ -44,6 +45,7 @@ public final class EffortlessClientManager implements ClientManager {
     private final OperationsRenderer operationsRenderer;
     private final OutlineRenderer outlineRenderer;
     private final PatternRenderer patternRenderer;
+    private final MirrorPlaneRenderer mirrorPlaneRenderer;
 
     private Client client;
 
@@ -56,6 +58,7 @@ public final class EffortlessClientManager implements ClientManager {
         this.operationsRenderer = new OperationsRenderer(entrance);
         this.outlineRenderer = new OutlineRenderer();
         this.patternRenderer = new PatternRenderer(entrance);
+        this.mirrorPlaneRenderer = new MirrorPlaneRenderer(entrance);
 
         getEntrance().getEventRegistry().getRegisterKeysEvent().register(this::onRegisterKeys);
         getEntrance().getEventRegistry().getKeyInputEvent().register(this::onKeyInput);
@@ -164,9 +167,10 @@ public final class EffortlessClientManager implements ClientManager {
 
         if (Keys.KEY_ESCAPE.isDown()) {
             getEntrance().getStructureBuilder().resetInteractions(getRunningClient().getPlayer());
+            getEntrance().getStructureBuilder().cancelMirrorPlacement();
         }
 
-        if (EffortlessKeys.BUILD_MODE_RADIAL.getKeyBinding().isDown()) {
+        if (EffortlessKeys.BUILD_MODE_RADIAL.getKeyBinding().isDown() && !getEntrance().getStructureBuilder().isMirrorSelectionKeyHeld()) {
             if (!(getRunningClient().getPanel() instanceof EffortlessStructureScreen)) {
                 new EffortlessStructureScreen(getEntrance(), EffortlessKeys.BUILD_MODE_RADIAL.getKeyBinding()).attach();
             }
@@ -319,7 +323,18 @@ public final class EffortlessClientManager implements ClientManager {
 
     public EventResult onInteractionInput(InteractionType type, InteractionHand hand) {
 
+        if (getEntrance().getStructureBuilder().isPlacingMirror()) {
+            // Prevent a build while the player holds the click that placed the mirror.
+            resetInteractionCooldown();
+            return getEntrance().getStructureBuilder().onMirrorPlacementInteract(getRunningClient().getPlayer(), type, hand);
+        }
+
         if (getEntrance().getStructureBuilder().getContext(getRunningClient().getPlayer()).isDisabled()) {
+            // Minecraft places or breaks the block. Effortless only adds the mirrored copies.
+            switch (type) {
+                case USE_ITEM -> getEntrance().getStructureBuilder().onVanillaUseItem(getRunningClient().getPlayer(), hand);
+                case ATTACK -> getEntrance().getStructureBuilder().onVanillaAttack(getRunningClient().getPlayer());
+            }
             return EventResult.pass();
         }
 
@@ -373,6 +388,7 @@ public final class EffortlessClientManager implements ClientManager {
 
     public void onRenderEnd(Renderer renderer, float deltaTick) {
         patternRenderer.render(renderer, deltaTick);
+        mirrorPlaneRenderer.render(renderer, deltaTick);
         outlineRenderer.render(renderer, deltaTick);
         operationsRenderer.render(renderer, deltaTick);
     }

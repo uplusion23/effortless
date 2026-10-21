@@ -5,6 +5,7 @@ import dev.huskuraft.universal.api.networking.PacketListener;
 import dev.huskuraft.effortless.networking.packets.player.PlayerBuildPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerBuildTooltipPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerCommandPacket;
+import dev.huskuraft.effortless.networking.packets.player.PlayerFlightPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerPermissionCheckPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerSettingsPacket;
 import dev.huskuraft.effortless.networking.packets.player.PlayerSnapshotCapturePacket;
@@ -31,5 +32,7 @@ public interface AllPacketListener extends PacketListener {
     void handle(PlayerSnapshotCapturePacket packet, Player player);
 
     void handle(PlayerSnapshotSharePacket packet, Player player);
+
+    void handle(PlayerFlightPacket packet, Player player);
 
 }

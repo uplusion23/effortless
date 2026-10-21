@@ -7,12 +7,16 @@ import dev.huskuraft.effortless.EffortlessClient;
 import dev.huskuraft.universal.api.gui.AbstractPanelScreen;
 import dev.huskuraft.universal.api.gui.button.Button;
 import dev.huskuraft.universal.api.gui.text.TextWidget;
+import dev.huskuraft.universal.api.gui.tooltip.TooltipHelper;
 import dev.huskuraft.universal.api.platform.Entrance;
+import dev.huskuraft.universal.api.text.ChatFormatting;
 import dev.huskuraft.universal.api.text.Text;
 import dev.huskuraft.effortless.building.config.BuilderConfig;
 import dev.huskuraft.effortless.building.config.ClientConfig;
 import dev.huskuraft.effortless.building.config.PatternConfig;
 import dev.huskuraft.effortless.building.config.RenderConfig;
+import dev.huskuraft.effortless.building.flight.FlightRange;
+import dev.huskuraft.effortless.networking.packets.player.PlayerFlightPacket;
 import dev.huskuraft.effortless.screen.settings.SettingOptionsList;
 import dev.huskuraft.effortless.screen.transformer.EffortlessItemRandomizerPresetsScreen;
 
@@ -26,6 +30,10 @@ public class EffortlessBuilderSettingsScreen extends AbstractPanelScreen {
         super(entrance, Text.translate("effortless.builder_settings.title"), PANEL_WIDTH_60, PANEL_HEIGHT_FULL);
         this.consumer = newConfig -> {
             getEntrance().getConfigStorage().update(config -> newConfig);
+            // Send the new range immediately. The server also applies it during a flight.
+            if (getEntrance().getSessionManager().isSessionValid()) {
+                getEntrance().getChannel().sendPacket(new PlayerFlightPacket(false, newConfig.builderConfig().flightRange()));
+            }
         };
 
         this.config = getEntrance().getConfigStorage().get();
@@ -59,11 +67,23 @@ public class EffortlessBuilderSettingsScreen extends AbstractPanelScreen {
 
 
         entries.addIntegerEntry(Text.translate("effortless.builder_settings.reserved_tool_durability"), null, this.config.builderConfig().reservedToolDurability(), BuilderConfig.RESERVED_TOOL_DURABILITY_RANGE.min(), BuilderConfig.RESERVED_TOOL_DURABILITY_RANGE.max(), (value) -> {
-            this.config = this.config.withBuilderConfig(new BuilderConfig(value, this.config.builderConfig().passiveMode()));
+            this.config = this.config.withBuilderConfig(this.config.builderConfig().withReservedToolDurability(value));
         });
         entries.addSwitchEntry(Text.translate("effortless.builder_settings.passive_mode"), null, this.config.builderConfig().passiveMode(), (value) -> {
-            this.config = this.config.withBuilderConfig(new BuilderConfig(config.builderConfig().reservedToolDurability(), value));
+            this.config = this.config.withBuilderConfig(this.config.builderConfig().withPassiveMode(value));
         });
+
+        var flightRange = this.config.builderConfig().flightRange();
+        // Use the player limit until the server sends the limit for this player.
+        var flightRangeEntry = entries.addSliderEntry(Text.translate("effortless.builder_settings.flight_range"), null, flightRange, FlightRange.MIN, Math.max(FlightRange.MAX, flightRange), FlightRange::getDisplayName, (value) -> {
+            this.config = this.config.withBuilderConfig(this.config.builderConfig().withFlightRange(value));
+        });
+        flightRangeEntry.setTooltip(TooltipHelper.makeSummary(getTypeface(), Text.translate("effortless.builder_settings.flight_range"), Text.translate("effortless.builder_settings.flight_range.tooltip", FlightRange.MAX, FlightRange.EXTENDED_MAX, Text.text(FlightRange.EXTENDED_PERMISSION).withStyle(ChatFormatting.GOLD))));
+        if (getEntrance().getSessionManager().isSessionValid()) {
+            getEntrance().getChannel().sendPacket(new PlayerFlightPacket(false, flightRange), packet -> getEntrance().getClient().execute(() -> {
+                flightRangeEntry.setRange(FlightRange.MIN, packet.maxRange());
+            }));
+        }
 
         entries.addTab(Text.translate("effortless.pattern_settings.item_randomizer_presets"), null, config.patternConfig().transformerPreset(), (value) -> {
             this.config = this.config.withPatternConfig(new PatternConfig(value));

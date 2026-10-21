@@ -119,8 +119,16 @@ public abstract class BlockOperation implements Operation {
         return getBlockPosition().y() >= getWorld().getMinBuildHeight() && getBlockPosition().y() <= getWorld().getMaxBuildHeight();
     }
 
-    public final boolean allowInteraction() {
-        return getSession().getInterceptors().stream().allMatch(interceptor -> interceptor.allowInteraction(getPlayer(), getWorld(), getBlockPosition()));
+    public final boolean allowBreakBlock() {
+        return getSession().getInterceptors().stream().allMatch(interceptor -> interceptor.allowBreakBlock(getPlayer(), getWorld(), getBlockPosition()));
+    }
+
+    public final boolean allowPlaceBlock() {
+        return getSession().getInterceptors().stream().allMatch(interceptor -> interceptor.allowPlaceBlock(getPlayer(), getWorld(), getBlockPosition()));
+    }
+
+    public final boolean allowInteractBlock() {
+        return getSession().getInterceptors().stream().allMatch(interceptor -> interceptor.allowInteractBlock(getPlayer(), getWorld(), getInteraction()));
     }
 
     public abstract Type getType();

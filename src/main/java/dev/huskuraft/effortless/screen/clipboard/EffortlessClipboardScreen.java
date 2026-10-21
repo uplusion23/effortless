@@ -26,6 +26,7 @@ public class EffortlessClipboardScreen extends AbstractPanelScreen {
     private MessageTextWidget textWidget;
     private StructureSnapshotWidget snapshotWidget;
     private Button enableButton;
+    private Button pasteAirButton;
     private Button doneButton;
     private Button libraryButton;
     private Button historyButton;
@@ -96,7 +97,9 @@ public class EffortlessClipboardScreen extends AbstractPanelScreen {
 
 
         this.editButton = addWidget(Button.builder(getEntrance(), Text.translate("effortless.button.edit"), button -> {
-
+            new EffortlessClipboardEditScreen(getEntrance(), clipboard.snapshot(), snapshot -> {
+                this.clipboard = this.clipboard.withSnapshot(snapshot);
+            }).attach();
         }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 1f, 3 / 4f, 1 / 4f).build());
 
         this.shareButton = addWidget(Button.builder(getEntrance(), Text.translate("effortless.button.share"), button -> {
@@ -125,12 +128,17 @@ public class EffortlessClipboardScreen extends AbstractPanelScreen {
 
         this.doneButton = addWidget(Button.builder(getEntrance(), Text.translate("effortless.button.done"), button -> {
             detachAll();
-        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 0f, 0f, 2 / 4f).build());
+        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 0f, 0f, 1 / 3f).build());
+
+        this.pasteAirButton = addWidget(Button.builder(getEntrance(), Text.translate(clipboard.pasteAir() ? "effortless.clipboard.button.paste_air_on" : "effortless.clipboard.button.paste_air_off"), button -> {
+            this.clipboard = clipboard.withPasteAir(!clipboard.pasteAir());
+            recreate();
+        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 0f, 1 / 3f, 1 / 3f).build());
 
         this.enableButton = addWidget(Button.builder(getEntrance(), clipboard.enabled() ? Text.translate("effortless.clipboard.button.disable") : Text.translate("effortless.clipboard.button.enable"), button -> {
             this.clipboard = clipboard.withEnabled(!clipboard.enabled());
             recreate();
-        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 0f, 2 / 4f, 2 / 4f).build());
+        }).setBoundsGrid(getLeft(), getTop(), getWidth(), getHeight(), 0f, 2 / 3f, 1 / 3f).build());
 
 
     }
@@ -155,6 +163,8 @@ public class EffortlessClipboardScreen extends AbstractPanelScreen {
         this.editButton.setActive(!clipboard.isEmpty());
 
         this.enableButton.setTooltip(TooltipHelper.makeSummary(getTypeface(), clipboard.enabled() ? Text.translate("effortless.clipboard.button.disable") : Text.translate("effortless.clipboard.button.enable"), Text.translate("effortless.clipboard.enable_clipboard.tooltip", OptionKeys.KEY_ATTACK.getKeyBinding().getKey().getNameText(), OptionKeys.KEY_USE.getKeyBinding().getKey().getNameText())));
+
+        this.pasteAirButton.setTooltip(TooltipHelper.makeSummary(getTypeface(), Text.translate(clipboard.pasteAir() ? "effortless.clipboard.button.paste_air_on" : "effortless.clipboard.button.paste_air_off"), Text.translate("effortless.clipboard.paste_air.tooltip")));
 
 
     }

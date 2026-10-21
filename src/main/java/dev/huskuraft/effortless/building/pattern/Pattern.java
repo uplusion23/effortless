@@ -38,8 +38,13 @@ public record Pattern(
 
     public float volumeMultiplier() {
         var multiplier = 1f;
+        if (!enabled) {
+            return multiplier;
+        }
         for (var transformer : transformers()) {
-            multiplier = multiplier * transformer.volumeMultiplier();
+            if (transformer.isValid()) {
+                multiplier = multiplier * transformer.volumeMultiplier();
+            }
         }
         return multiplier;
     }

@@ -95,7 +95,7 @@ public final class EffortlessClientSessionManager implements SessionManager {
         var serverMod = serverSession.get().mods().stream().filter(mod -> mod.getId().equals(Effortless.MOD_ID)).findFirst().orElseThrow();
         var clientMod = clientSession.get().mods().stream().filter(mod -> mod.getId().equals(Effortless.MOD_ID)).findFirst().orElseThrow();
 
-        if (!serverMod.getVersionStr().equals(clientMod.getVersionStr())) {
+        if (!serverMod.getVersionStr().equals(clientMod.getVersionStr()) || serverSession.get().protocolVersion() != clientSession.get().protocolVersion()) {
             return SessionStatus.PROTOCOL_NOT_MATCH;
         }
         return SessionStatus.SUCCESS;

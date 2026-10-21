@@ -163,7 +163,7 @@ public final class EffortlessStructureBuilder extends StructureBuilder {
                 case PLACE_BLOCK -> ChatFormatting.WHITE;
                 case INTERACT_BLOCK -> ChatFormatting.YELLOW;
                 case COPY_STRUCTURE -> ChatFormatting.GREEN;
-                case PASTE_STRUCTURE -> ChatFormatting.WHITE;
+                case PASTE_STRUCTURE, MIRROR_BLOCK -> ChatFormatting.WHITE;
             }).withStyle(ChatFormatting.GOLD);
             var affectedText = Text.text("[").append(String.valueOf(result.getAffectedBlockCount())).append("]").withStyle(ChatFormatting.AQUA);
             player.sendMessage(Effortless.getMessage(countText.append(" ").append(Text.translate("effortless.message.history.server.undo", buildStateText, affectedText))));
@@ -190,7 +190,7 @@ public final class EffortlessStructureBuilder extends StructureBuilder {
                 case PLACE_BLOCK -> ChatFormatting.WHITE;
                 case INTERACT_BLOCK -> ChatFormatting.YELLOW;
                 case COPY_STRUCTURE -> ChatFormatting.GREEN;
-                case PASTE_STRUCTURE -> ChatFormatting.WHITE;
+                case PASTE_STRUCTURE, MIRROR_BLOCK -> ChatFormatting.WHITE;
             }).withStyle(ChatFormatting.GOLD);
             var affectedText = Text.text("[").append(String.valueOf(result.getAffectedBlockCount())).append("]").withStyle(ChatFormatting.AQUA);
             player.sendMessage(Effortless.getMessage(countText.append(" ").append(Text.translate("effortless.message.history.server.redo", buildStateText, affectedText))));

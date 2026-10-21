@@ -1,6 +1,34 @@
 ## Changelog
 ----------
 
+### Unreleased
+
+* Add clipboard editor with a live preview to rotate and flip the clipboard around X/Y/Z
+* Fix clipboard X/Z rotations not re-orienting blocks (logs, stairs, slabs, pistons)
+* Add an outline of the whole clipboard area when pasting, and outline the clipboard blocks when it is too large for block previews
+* Fix the paste summary staying at "Pending Item Summary" for large clipboards, the preview limit now counts pasted blocks instead of the clipboard box
+* Fix disabled patterns still multiplying the build volume
+* Add Mirror X/Y/Z to the radial menu, independent of patterns: pick one, aim the plane and left click to place it (right click cancels), right click the button to remove it. One mirror per axis, blocks you build show a ghost on the mirrored side, and placing and breaking are mirrored with or without a build mode
+* Add Controls & Mirror settings: choose whether mirrored breaking only breaks mirrored copies of the broken block or all blocks, and rebind the Effortless keys, including the radial menu key
+* Fix builder settings (passive mode, reserved tool durability) not being saved between game restarts
+* Add the clipboard origin to the clipboard previews and to pasting in the world, in blue
+* Add choosing the clipboard origin in the clipboard editor: right click a block to make it the origin, right click the origin to move it along any axis, also outside the copied area as an offset
+* Add Paste Air to the clipboard screen: the air in the copied area replaces the blocks there when pasting
+* Copies keep the copied area including its air, shown as an outline in the clipboard previews
+* Fix being disconnected with "Payload may not be larger than 32767 bytes" when pasting a large clipboard, large packets are now sent in parts and clipboard positions are encoded smaller
+* Fix mirrored slabs not merging when a slab is placed onto a slab, and a slab placed onto a slab costing two slabs
+* Fix the clipboard preview taking its light from the world, which turned large clipboards black after moving the origin
+* Add Flight to the radial menu: creative flight at half the speed for survival and adventure, near the bed you respawn at, ended by taking damage and unavailable for 15 seconds after it
+* Add Flight Range to Builder Settings: 64 blocks by default, players can set 0-64, operators and players with the permission `effortless.flight.extended_range` up to 256 or Infinite
+* Fix mirroring and building slabs onto slabs with Full Slabs: a block that can take the placed item, like a slab, now gets the item used on it like a player click, so mods like Full Slabs make their mixed slabs
+* Fix breaking one half of a double slab (Full Slabs, KleeSlabs) not being mirrored without a build mode
+* Fix mirrored vertical slabs of Full Slabs facing the wrong side
+* Fix replacing a block when there are no items for its replacement, the block is no longer broken first
+* Protocol version 17, client and server must both be updated
+* Fix OpenPAC claims only allowing the claim owner to build, now uses OpenPAC claim protection so parties, allies, exceptions and server claims are respected ([#226](https://github.com/huskuraft/effortless/issues/226))
+
+----------
+
 ### 3.4.0
 
 * Add support for OpenPAC ([#202](https://github.com/huskcasaca/effortless/pull/202))

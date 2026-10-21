@@ -11,6 +11,7 @@ import dev.huskuraft.universal.api.core.InteractionHand;
 import dev.huskuraft.universal.api.core.Items;
 import dev.huskuraft.universal.api.core.Player;
 import dev.huskuraft.universal.api.core.World;
+import dev.huskuraft.universal.api.math.BoundingBox3i;
 import dev.huskuraft.universal.api.platform.Entrance;
 import dev.huskuraft.universal.api.tag.RecordTag;
 import dev.huskuraft.effortless.building.BuildState;
@@ -21,6 +22,7 @@ import dev.huskuraft.effortless.building.clipboard.Snapshot;
 import dev.huskuraft.effortless.building.interceptor.BuildInterceptor;
 import dev.huskuraft.effortless.building.interceptor.FtbChunksInterceptor;
 import dev.huskuraft.effortless.building.interceptor.OpenPacInterceptor;
+import dev.huskuraft.effortless.building.operation.Operation;
 import dev.huskuraft.effortless.building.operation.OperationFilter;
 import dev.huskuraft.effortless.building.operation.batch.BatchOperation;
 import dev.huskuraft.effortless.building.operation.batch.BatchOperationResult;
@@ -102,11 +104,20 @@ public class BatchBuildSession implements Session {
             case COPY_STRUCTURE ->
                     context.collectInteractions().map(interaction -> createBlockCopyOperationFromInteraction(player, world, context, storage, interaction));
             case PASTE_STRUCTURE -> {
-                yield context.clipboard().snapshot().blockData().stream().map(blockSnapshot -> {
-                    var interaction = context.getInteraction(0).withBlockPosition(context.getInteraction(0).blockPosition().add(blockSnapshot.blockPosition()));
+                var origin = context.getInteraction(0);
+                var blocks = context.clipboard().snapshot().blockData().stream().map(blockSnapshot -> {
+                    var interaction = origin.withBlockPosition(origin.blockPosition().add(blockSnapshot.blockPosition()));
                     return createBlockPlaceOperationFromInteraction(player, world, context, storage, interaction, blockSnapshot.blockState(), blockSnapshot.entityTag());
                 });
+                // A client can send a region of any size. Make sure that the region is in the paste limit before the iteration.
+                if (!context.clipboard().pasteAir() || context.clipboard().snapshot().getRegionVolume() > context.configs().constraintConfig().maxStructureCopyPasteVolume()) {
+                    yield blocks;
+                }
+                var air = context.clipboard().snapshot().getAirPositions().map(blockPosition -> createBlockBreakOperationFromInteraction(player, world, context, storage, origin.withBlockPosition(origin.blockPosition().add(blockPosition))));
+                yield Stream.concat(air, blocks);
             }
+            // Minecraft placed this block. Build only its mirrored copies.
+            case MIRROR_BLOCK -> context.clipboard().snapshot().blockData().stream().limit(1).map(blockSnapshot -> createBlockPlaceOperationFromInteraction(player, world, context, storage, context.getInteraction(0), blockSnapshot.blockState(), null));
         });
         if (context.buildState() == BuildState.PLACE_BLOCK) {
             operations = (BatchOperation) inHandTransformer.transform(operations);
@@ -118,9 +129,48 @@ public class BatchBuildSession implements Session {
                 }
             }
         }
+        if (context.buildState() == BuildState.MIRROR_BLOCK) {
+            operations = context.isMirrored() ? operations.flatten().map(operation -> mirrorCopies(context, operation)) : operations.filter(operation -> false);
+        } else if (context.isMirrored()) {
+            if (context.buildState() == BuildState.BREAK_BLOCK) {
+                operations = operations.flatten().map(operation -> mirrorBreak(context, operation));
+            } else {
+                operations = (BatchOperation) mirror(context, operations);
+            }
+        }
         operations = operations.flatten().filter(Objects::nonNull).filter(OperationFilter.distinctBlockOperations());
 
         return operations;
+    }
+
+    private static Operation mirror(Context context, Operation operation) {
+        for (var transformer : context.mirror().transformers()) {
+            if (transformer.isValid()) {
+                operation = transformer.transform(operation);
+            }
+        }
+        return operation;
+    }
+
+    private static Operation mirrorCopies(Context context, Operation operation) {
+        var mirrored = mirror(context, operation);
+        if (!(operation instanceof BlockOperation blockOperation) || !(mirrored instanceof BatchOperation batchOperation)) {
+            return mirrored;
+        }
+        var blockPosition = blockOperation.getBlockPosition();
+        return batchOperation.flatten().filter(copy -> !(copy instanceof BlockOperation blockCopy) || !blockCopy.getBlockPosition().equals(blockPosition));
+    }
+
+    // Mirror each broken block separately. Thus the mirror break mode can compare each copy with the block.
+    private static Operation mirrorBreak(Context context, Operation operation) {
+        var mirrored = mirror(context, operation);
+        if (!(operation instanceof BlockOperation blockOperation) || !(mirrored instanceof BatchOperation batchOperation)) {
+            return mirrored;
+        }
+        var blockPosition = blockOperation.getBlockPosition();
+        var blockState = blockOperation.getBlockStateInWorld();
+        var mirrorBreakMode = context.configs().builderConfig().mirrorBreakMode();
+        return batchOperation.flatten().filter(copy -> !(copy instanceof BlockOperation blockCopy) || blockCopy.getBlockPosition().equals(blockPosition) || mirrorBreakMode.shouldBreak(blockState, blockCopy.getBlockStateInWorld()));
     }
 
     public List<BuildInterceptor> getInterceptors() {
@@ -149,7 +199,17 @@ public class BatchBuildSession implements Session {
         if (!context.clipboard().enabled()) {
             return;
         }
-        var snapshot = new Snapshot("", System.currentTimeMillis(), lastResult.getResults().stream().map(BlockStateCopyOperationResult.class::cast).map(BlockStateCopyOperationResult::getBlockData).filter(blockData -> context.clipboard().copyAir() || (blockData.blockState() != null && !blockData.blockState().isAir())).toList());
+        var results = lastResult.getResults().stream().map(BlockStateCopyOperationResult.class::cast).toList();
+        // The block data does not contain air. The region contains all copied positions, air included.
+        var region = results.isEmpty() ? null : BoundingBox3i.of(
+                results.stream().mapToInt(result -> result.getRelativePosition().x()).min().getAsInt(),
+                results.stream().mapToInt(result -> result.getRelativePosition().y()).min().getAsInt(),
+                results.stream().mapToInt(result -> result.getRelativePosition().z()).min().getAsInt(),
+                results.stream().mapToInt(result -> result.getRelativePosition().x()).max().getAsInt(),
+                results.stream().mapToInt(result -> result.getRelativePosition().y()).max().getAsInt(),
+                results.stream().mapToInt(result -> result.getRelativePosition().z()).max().getAsInt()
+        );
+        var snapshot = new Snapshot("", System.currentTimeMillis(), results.stream().map(BlockStateCopyOperationResult::getBlockData).filter(blockData -> context.clipboard().copyAir() || (blockData.blockState() != null && !blockData.blockState().isAir())).toList(), region);
         getEntrance().getChannel().sendPacket(new PlayerSnapshotCapturePacket(player.getId(), snapshot), player);
     }
 

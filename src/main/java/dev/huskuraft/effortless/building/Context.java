@@ -20,6 +20,7 @@ import dev.huskuraft.universal.api.math.Vector3i;
 import dev.huskuraft.effortless.building.clipboard.Clipboard;
 import dev.huskuraft.effortless.building.clipboard.Snapshot;
 import dev.huskuraft.effortless.building.config.BuilderConfig;
+import dev.huskuraft.effortless.building.mirror.Mirror;
 import dev.huskuraft.effortless.building.pattern.Pattern;
 import dev.huskuraft.effortless.building.replace.Replace;
 import dev.huskuraft.effortless.building.replace.ReplaceStrategy;
@@ -37,6 +38,7 @@ public record Context(
         Structure structure,
         Clipboard clipboard,
         Pattern pattern,
+        Mirror mirror,
         Replace replace,
 
         Configs configs,
@@ -68,6 +70,7 @@ public record Context(
                 Structure.DISABLED,
                 Clipboard.DISABLED,
                 Pattern.DISABLED,
+                Mirror.EMPTY,
                 Replace.DISABLED,
                 new Configs(
                         ConstraintConfig.DEFAULT,
@@ -183,47 +186,51 @@ public record Context(
     }
 
     public Context withBuildState(BuildState state) {
-        return new Context(id, state, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, state, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withBuildType(BuildType type) {
-        return new Context(id, buildState, type, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, type, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withNextInteraction(BlockInteraction interaction) {
-        return new Context(id, buildState, buildType, interactions.put(interaction), structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions.put(interaction), structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withNoInteraction() {
-        return new Context(id, buildState, buildType, Interactions.EMPTY, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, Interactions.EMPTY, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withStructure(Structure structure) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withClipboard(Clipboard clipboard) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withEmptyClipboard() {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard.withSnapshot(Snapshot.EMPTY), pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard.withSnapshot(Snapshot.EMPTY), pattern, mirror, replace, configs, extras);
     }
 
     public Context withPattern(Pattern pattern) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
+    }
+
+    public Context withMirror(Mirror mirror) {
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withReplace(Replace replace) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withExtras(Extras extras) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withPlayerExtras(Player player) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, new Extras(player));
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, new Extras(player));
     }
 
     public Context finalize(Player player, BuildStage stage) {
@@ -245,6 +252,7 @@ public record Context(
                 structure,
                 clipboard,
                 pattern,
+                mirror,
                 replace,
                 configs,
                 extras
@@ -267,7 +275,7 @@ public record Context(
     }
 
     public Context withReachParams(Configs configs) {
-        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, replace, configs, extras);
+        return new Context(id, buildState, buildType, interactions, structure, clipboard, pattern, mirror, replace, configs, extras);
     }
 
     public Context withConstraintConfig(ConstraintConfig config) {
@@ -290,18 +298,37 @@ public record Context(
         return BoundingBox3d.fromLowerCornersOf(interactions().results().stream().map(BlockInteraction::getBlockPosition).map(BlockPosition::toVector3i).toArray(Vector3i[]::new)).getSize().toVector3i();
     }
 
+    public boolean isMirrored() {
+        return buildState() != BuildState.COPY_STRUCTURE && !mirror().isEmpty();
+    }
+
+    public float volumeMultiplier() {
+        if (isMirrored()) {
+            return pattern().volumeMultiplier() * mirror().volumeMultiplier();
+        }
+        return pattern().volumeMultiplier();
+    }
+
     public int getVolume() {
         if (buildState() == BuildState.PASTE_STRUCTURE) {
-            return (int) (clipboard().snapshot().volume() * pattern().volumeMultiplier());
+            return (int) (clipboard().snapshot().volume() * volumeMultiplier());
         }
-        return (int) (structure().volume(this) * pattern().volumeMultiplier());
+        return (int) (structure().volume(this) * volumeMultiplier());
+    }
+
+    // Different from getVolume, a paste counts only the blocks that it places.
+    public int getPreviewVolume() {
+        if (buildState() == BuildState.PASTE_STRUCTURE) {
+            return (int) (clipboard().getPasteSize() * volumeMultiplier());
+        }
+        return getVolume();
     }
 
     public int getMaxVolume() {
         return switch (buildState()) {
             case IDLE -> 0;
             case BREAK_BLOCK -> configs().constraintConfig().maxBlockBreakVolume();
-            case PLACE_BLOCK -> configs().constraintConfig().maxBlockPlaceVolume();
+            case PLACE_BLOCK, MIRROR_BLOCK -> configs().constraintConfig().maxBlockPlaceVolume();
             case INTERACT_BLOCK -> configs().constraintConfig().maxBlockInteractVolume();
             case COPY_STRUCTURE, PASTE_STRUCTURE -> configs().constraintConfig().maxStructureCopyPasteVolume();
         };
@@ -315,7 +342,7 @@ public record Context(
         return switch (buildState()) {
             case IDLE -> true;
             case BREAK_BLOCK -> configs().constraintConfig().allowBreakBlocks();
-            case PLACE_BLOCK -> configs().constraintConfig().allowPlaceBlocks();
+            case PLACE_BLOCK, MIRROR_BLOCK -> configs().constraintConfig().allowPlaceBlocks();
             case INTERACT_BLOCK -> configs().constraintConfig().allowInteractBlocks();
             case COPY_STRUCTURE, PASTE_STRUCTURE -> configs().constraintConfig().allowCopyPasteStructures();
         };
