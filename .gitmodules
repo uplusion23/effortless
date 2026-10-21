@@ -1,4 +1,8 @@
-[submodule "fuse-gradle-plugin"]
-	path = minecraft-universal-gradle-plugin/fuse-gradle-plugin
-	url = git@github.com:huskcasaca/fuse.git
-	branch = master
+[submodule "universal-gradle-plugin"]
+	path = universal-gradle-plugin
+	url = https://github.com/uplusion23/universal-gradle-plugin.git
+	branch = main
+[submodule "universal-api"]
+	path = universal-api
+	url = https://github.com/uplusion23/universal-api.git
+	branch = main

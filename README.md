@@ -19,6 +19,10 @@ from a pre-defined list for random placement.
     <a href="https://discord.gg/FwbBg8uUZ7">Discord</a>
 </div>
 
+> This is a fork of [huskuraft/effortless](https://github.com/huskuraft/effortless). It adds mirrors without a build
+> mode, a clipboard editor, flight, and other changes listed in the [changelog](CHANGELOG.md). Report problems with
+> this fork in its [issues](https://github.com/uplusion23/effortless/issues), not upstream.
+
 ## Features
 
 - Pure Vanilla Compatibility: This mod is designed to be fully compatible with a pure vanilla game without adding new
@@ -146,6 +150,24 @@ from a pre-defined list for random placement.
 | Dependency      | Download                                   |
 |-----------------|--------------------------------------------|
 | NeoForge Loader | https://neoforged.net/categories/releases/ |
+
+## Building
+
+This fork builds [universal-api](https://github.com/uplusion23/universal-api) and
+[universal-gradle-plugin](https://github.com/uplusion23/universal-gradle-plugin) from submodules, so clone it with
+the submodules:
+
+```sh
+git clone --recursive https://github.com/uplusion23/effortless.git
+cd effortless
+./gradlew build
+```
+
+- Run Gradle with JDK 21. Gradle downloads the other JDKs that the targets need (16 and 17).
+- The build puts one jar for each Minecraft version in `build/libs`.
+- To build fewer targets, set `universal_targets`, for example `./gradlew build -Puniversal_targets=1.20.1:fabric-api`.
+- The build publishes universal-api to the local Maven repository first. If it is already there and has no changes,
+  add `-Puniversal_api_publish=false` to skip this step.
 
 ## Credits
 

@@ -34,3 +34,6 @@ replay_*.log
 
 # Minecraft
 run/
+
+# Claude Code
+.claude/settings.local.json

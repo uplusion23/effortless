@@ -1,25 +1,28 @@
 pluginManagement {
+    includeBuild 'universal-gradle-plugin'
     repositories {
         gradlePluginPortal()
-        mavenLocal()
         mavenCentral()
-        maven {
-            name = 'Huskuraft'
-            url = 'https://repo.huskuraft.dev/releases'
-        }
     }
 }
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal()
-        mavenCentral()
-        maven {
-            name = 'Huskuraft'
-            url = 'https://repo.huskuraft.dev/releases'
+        mavenLocal {
+            content {
+                includeGroup 'dev.huskuraft.universal'
+            }
         }
+        mavenCentral()
+    }
+}
+
+// An explicit substitution turns off the automatic substitution, which replaces dev.huskuraft.universal:fabric-api with
+// a project that has no jar. No dependency uses this module. All universal-api artifacts come from the local Maven repository.
+includeBuild('universal-api') {
+    dependencySubstitution {
+        substitute module('dev.huskuraft.universal:universal-api') using project(':')
     }
 }
 
 rootProject.name = 'effortless'
-

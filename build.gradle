@@ -1,10 +1,34 @@
 plugins {
-    id 'dev.huskuraft.universal' version '0.2.0'
+    id 'dev.huskuraft.universal'
 }
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+// Set universal_targets to build only some targets, for example -Puniversal_targets=1.20.1:fabric-api.
+// If universal_targets is not set or is 'all', the build includes all targets in the list below.
+def universalTargets = (findProperty('universal_targets') ?: 'all').toString().split(',')*.trim()
+
+def universalApi = file('universal-api')
+if (!file("${universalApi}/gradle.properties").exists()) {
+    throw new GradleException("The universal-api submodule is missing. Run 'git submodule update --init --recursive'.")
+}
+def universalApiProperties = new Properties()
+file("${universalApi}/gradle.properties").withInputStream { universalApiProperties.load(it) }
+def universalVersion = universalApiProperties.getProperty('version')
+
+// Set universal_api_publish to false to use the universal-api targets that are already in the local Maven repository.
+if ((findProperty('universal_api_publish') ?: 'true').toString().toBoolean()) {
+    tasks.named('compileJava') {
+        dependsOn gradle.includedBuild('universal-api').task(':publishToMavenLocal')
+    }
 }
 
 dependencies {
@@ -16,7 +40,7 @@ dependencies {
     compileOnly 'io.netty:netty-all:4.1.109.Final'
     compileOnly 'org.slf4j:slf4j-api:2.0.13'
 
-    implementation 'dev.huskuraft.universal:common-api:0.1.0'
+    implementation "dev.huskuraft.universal:common-api:${universalVersion}"
 
     [
         '1.17.1': ['fabric-api', 'quilt-api', 'forge-api',],
@@ -33,7 +57,9 @@ dependencies {
         '1.21.3': ['fabric-api', 'quilt-api', 'forge-api', 'neoforge-api'],
     ].forEach { minecraft, loaders ->
         loaders.forEach { loader ->
-            universalTarget "dev.huskuraft.universal:${loader}:${minecraft}"
+            if (universalTargets.contains('all') || universalTargets.contains("${minecraft}:${loader}".toString())) {
+                universalTarget "dev.huskuraft.universal:${loader}:${minecraft}"
+            }
         }
     }
 
